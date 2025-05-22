@@ -15,7 +15,7 @@
 #include <imguiTools.h>
 #include <logs.h>
 #include <fstream>
-#include "player.cpp"
+#include "player.h"
 #include <windows.h>
 
 struct GameData
@@ -35,6 +35,7 @@ Player player2;
 renderPlayer PlayerRenderer;
  //wouldnt use for anything other than initsprite. weird but will do.
 HANDLE heap = GetProcessHeap();
+
 
 
 void ReduceMemoryUsage() {
@@ -142,31 +143,24 @@ bool gameLogic(float deltaTime, platform::Input& input)
 
 
 
-	//renderer.renderRectangle({gameData.rectPos, 100, 100}, Colors_Blue);
-
+	
 	
 
 	
-	if (input.isButtonHeld(platform::Button::A) && input.isButtonHeld(platform::Button::D))
-	{
-		player1.currentState.ismoving = false;
-	}
-	else {
-		if (input.isButtonHeld(platform::Button::A)) { player1.move(player1, "left", deltaTime, true); }
-		else if (input.isButtonHeld(platform::Button::D)) { player1.move(player1, "right", deltaTime, false); }
-		else { player1.currentState.ismoving = false; }
-	}
+
 	//if (player1.animation.sprite.texture.id == 0) {
 	//	platform::log(("Warning: Invalid texture for sprite: " + player1.currentState.statename).c_str());
 	//	// Optionally skip rendering this sprite
 	//}
+	
+	
+	actions::action action = PlayerActions.checkInputs(input, player1);
+	PlayerActions.updateState(player1, action, deltaTime);
 	PlayerRenderer.updatePlayer(player1, deltaTime, renderer);
 
-	//renderer.renderRectangle({ player1.attributes.position, 128, 128 }, player1.animation.sprite.texture);
-
+	
 	renderer.flush();
 
-	/*renderer.cleanup();*/
 
 
 

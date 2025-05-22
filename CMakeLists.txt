@@ -83,7 +83,7 @@ else()
 
 endif()
 
-target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES}  "src/gameLayer/player.cpp" )
+target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES}  "src/gameLayer/oldplayer.txt"  "src/gameLayer/Player.h" "src/gameLayer/player.cpp")
 
 
 if(MSVC) # If using the VS compiler...
