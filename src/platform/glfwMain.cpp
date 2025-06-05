@@ -436,7 +436,7 @@ int main()
 
 	int w = 1920;
 	int h = 720;
-	wind = glfwCreateWindow(w, h, "geam", nullptr, nullptr);
+	wind = glfwCreateWindow(w, h, "windows is a dumpsterfire of code", nullptr, nullptr);
 	glfwMakeContextCurrent(wind);
 	glfwSwapInterval(1);
 

@@ -17,7 +17,7 @@
 #include <fstream>
 #include "player.h"
 #include <windows.h>
-
+#include <thread>
 struct GameData
 {
 	glm::vec2 rectPos = {100,100};
@@ -29,14 +29,19 @@ struct GameData
 gl2d::Renderer2D renderer;
 gl2d::Texture BGTexture;
 glm::vec2 bgTextureSize;
-actions PlayerActions;
+actions Player1Actions;
+actions Player2Actions;
 Player player1;
 Player player2;
 renderPlayer PlayerRenderer;
  //wouldnt use for anything other than initsprite. weird but will do.
 HANDLE heap = GetProcessHeap();
-
-
+effects EffectsManager;
+effects::Effect hiteffect;
+void initializeEffects() {
+	hiteffect = EffectsManager.loadEffect("Hit_8x9", { 8, 9 });
+	hiteffect.frameDuration = 0.03f; // Set frame duration for the effect
+}
 
 void ReduceMemoryUsage() {
 	HANDLE hProcess = GetCurrentProcess();
@@ -48,12 +53,22 @@ void ReduceMemoryUsage() {
 	else {
 		std::cerr << "Failed to reduce memory usage. Error: " << GetLastError() << "\n";
 	}
+
+}
+void ScheduleMemoryTrimmingEvery(DWORD milliseconds) {
+	std::thread([milliseconds]() {
+		while (true) {
+			ReduceMemoryUsage();
+			std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+		}
+		}).detach();
 }
 
 bool initGame()
 {
 	loadsprites Spriteloader;
-	Animation animation;
+	Animation animation1;
+
 	//initializing stuff for the renderer
 	gl2d::init();
 	renderer.create();
@@ -73,7 +88,11 @@ bool initGame()
 	bgTextureSize = BGTexture.GetSize();
 	
 	//loading the player sprites
-	Spriteloader.loadPlayerSprites(player1, animation);
+	Spriteloader.loadPlayerSprites(player1, animation1);
+	player2.sprites_blue_left = player1.sprites_blue_left; 
+	player2.sprites_blue_right = player1.sprites_blue_right; 
+	player2.sprites_red_left = player1.sprites_red_left; 
+	player2.sprites_red_right = player1.sprites_red_right; // this way of loading it is WAY faster. in a perfect world the srpites wouldnt be stored under a player class but rather a global class, but this is fine for a simple game like this.
 	
 
 	// just a test but:
@@ -81,7 +100,12 @@ bool initGame()
 	player1.currentState.facing = "right"; // or "left" as appropriate
 	player1.attributes.name = "blue";
 	player1.setSprite(player1, "Defensive_Stance");
-	player1.attributes.position = { 700, 350 };
+	player2.setSprite(player2, "Defensive_Stance");
+	player1.attributes.position = { 700, 336 };
+	player2.attributes.position = { 1100, 336 };
+	player2.currentState.facing = "left"; // or "right" as appropriate
+	player2.attributes.name = "red";
+
 	//platform::log(("Player1 sprite length for Ise_Strice: " + std::to_string(player1.sprites_blue_right["Ise_Strice"].length)).c_str());
 
 	/*player1.sprites_blue_right.clear();
@@ -89,7 +113,47 @@ bool initGame()
 	player1.sprites_red_left.clear();
 	player1.sprites_red_right.clear();*/
 	
-	ReduceMemoryUsage();
+
+
+	
+
+
+	player1.sprites_blue_right["Ise_Strice"].drawOffset = { 92.0f, 0.0f};
+	player1.sprites_blue_left["Ise_Strice"].drawOffset = { 92.0f, 0.0f };
+	player1.sprites_red_right["Ise_Strice"].drawOffset = { 92.0f, 0.0f };
+	player1.sprites_red_left["Ise_Strice"].drawOffset = { 92.0f, 0.0f };
+	player2.sprites_blue_right["Ise_Strice"].drawOffset = { -92.0f, 0.0f };
+	player2.sprites_blue_left["Ise_Strice"].drawOffset = { -92.0f, 0.0f };
+	player2.sprites_red_right["Ise_Strice"].drawOffset = { -92.0f, 0.0f };
+	player2.sprites_red_left["Ise_Strice"].drawOffset = { -92.0f, 0.0f };
+
+	Player1Actions.allActions.clear();
+	Player2Actions.allActions.clear();
+	Player2Actions.punch.keybind = platform::Button::P;
+	Player2Actions.kick.keybind = platform::Button::K;
+	Player2Actions.Iceattack.keybind = platform::Button::L;
+	Player2Actions.block.keybind = platform::Button::Enter;
+	Player2Actions.Counter.keybind = platform::Button::Enter;
+
+	Player1Actions.punch.keybind = platform::Button::LeftShift;
+	Player1Actions.kick.keybind = platform::Button::LeftCtrl;
+	Player1Actions.Iceattack.keybind = platform::Button::W;
+	Player1Actions.block.keybind = platform::Button::LeftAlt;
+	Player1Actions.Counter.keybind = platform::Button::LeftAlt;
+
+	Player1Actions.allActions.push_back(Player1Actions.punch);
+	Player1Actions.allActions.push_back(Player1Actions.kick);
+	Player1Actions.allActions.push_back(Player1Actions.Iceattack);
+	Player1Actions.allActions.push_back(Player1Actions.block);  // 
+	Player1Actions.allActions.push_back(Player1Actions.Counter);
+
+	Player2Actions.allActions.push_back(Player2Actions.punch);
+	Player2Actions.allActions.push_back(Player2Actions.kick);
+	Player2Actions.allActions.push_back(Player2Actions.Iceattack);
+	Player2Actions.allActions.push_back(Player2Actions.block);  //
+	Player2Actions.allActions.push_back(Player2Actions.Counter);
+	initializeEffects();
+	ScheduleMemoryTrimmingEvery(10000); // Schedule memory trimming every 10 seconds
 	return true;
 }
 
@@ -153,18 +217,32 @@ bool gameLogic(float deltaTime, platform::Input& input)
 	//	// Optionally skip rendering this sprite
 	//}
 	
-	
-	actions::action action = PlayerActions.checkInputs(input, player1);
-	PlayerActions.updateState(player1, action, deltaTime);
-	PlayerRenderer.updatePlayer(player1, deltaTime, renderer);
+	/*if (input.isButtonPressed(platform::Button::Escape))
+	{
+		EffectsManager.drawEffect(hiteffect, { 100.0f, 100.0f }, 0);
+	}*/
+	actions::action action = Player1Actions.checkInputs(input, player1, platform::Button::A, platform::Button::D);
+	actions::action action2 = Player2Actions.checkInputs(input, player2, platform::Button::Left, platform::Button::Right);
 
+	Player1Actions.updateState(player1, action, deltaTime);
+	Player2Actions.updateState(player2, action2, deltaTime);
 	
+	actions::action result1, result2 = Player1Actions.checkHitboxes(player1, player2, EffectsManager, hiteffect); Player2Actions.checkHitboxes(player2, player1, EffectsManager, hiteffect);
+	/*platform::log(("Player1 action: " + result1.name).c_str());
+	platform::log(("Player2 action: " + result2.name).c_str());*/
+	
+	PlayerRenderer.updatePlayer(player1, deltaTime, renderer);
+	PlayerRenderer.updatePlayer(player2, deltaTime, renderer);
+	PlayerRenderer.showHitbox(player2, renderer);
+	PlayerRenderer.showHitbox(player1, renderer);
+	PlayerRenderer.drawStatBars(player1, player2, renderer);
+	EffectsManager.updateEffects(deltaTime, renderer);
 	renderer.flush();
 
 
 
 
-
+	
 
 	return true;
 };
