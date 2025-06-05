@@ -133,13 +133,13 @@ bool initGame()
 	Player2Actions.kick.keybind = platform::Button::K;
 	Player2Actions.Iceattack.keybind = platform::Button::L;
 	Player2Actions.block.keybind = platform::Button::Enter;
-	Player2Actions.Counter.keybind = platform::Button::Enter;
+	Player2Actions.Counter.keybind = -1;
 
 	Player1Actions.punch.keybind = platform::Button::LeftShift;
 	Player1Actions.kick.keybind = platform::Button::LeftCtrl;
 	Player1Actions.Iceattack.keybind = platform::Button::W;
 	Player1Actions.block.keybind = platform::Button::LeftAlt;
-	Player1Actions.Counter.keybind = platform::Button::LeftAlt;
+	Player1Actions.Counter.keybind = -1;
 
 	Player1Actions.allActions.push_back(Player1Actions.punch);
 	Player1Actions.allActions.push_back(Player1Actions.kick);
@@ -223,13 +223,17 @@ bool gameLogic(float deltaTime, platform::Input& input)
 	}*/
 	actions::action action = Player1Actions.checkInputs(input, player1, platform::Button::A, platform::Button::D);
 	actions::action action2 = Player2Actions.checkInputs(input, player2, platform::Button::Left, platform::Button::Right);
-
-	Player1Actions.updateState(player1, action, deltaTime);
-	Player2Actions.updateState(player2, action2, deltaTime);
-	
 	actions::action result1, result2 = Player1Actions.checkHitboxes(player1, player2, EffectsManager, hiteffect); Player2Actions.checkHitboxes(player2, player1, EffectsManager, hiteffect);
 	/*platform::log(("Player1 action: " + result1.name).c_str());
 	platform::log(("Player2 action: " + result2.name).c_str());*/
+
+	
+	Player1Actions.updateState(player1, action, deltaTime);
+
+	
+	
+	Player2Actions.updateState(player2, action2, deltaTime); 
+	
 	
 	PlayerRenderer.updatePlayer(player1, deltaTime, renderer);
 	PlayerRenderer.updatePlayer(player2, deltaTime, renderer);

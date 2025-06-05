@@ -54,6 +54,7 @@ actions::actions() {
     punch.staminaCost = 15;
     punch.Frames = 5;
     punch.hitframe = 3;
+    punch.hitbox = { 125.0f, 170.0f, 134.0f, 214.0f };
 
     kick.name = "kick";
     kick.type = "attack";
@@ -92,13 +93,13 @@ actions::actions() {
     Counter.cancelable = false;
     Counter.anim = "Defense attack";
     Counter.damage = 30;
-    Counter.keybind = platform::Button::LeftAlt;
+    Counter.keybind = 0;
     Counter.staminaCost = 10;
     Counter.Frames = 4;
     Counter.ApliesModifier = "stun";
     Counter.ApliesModifierValue = 5;
 
-    isHit.name = "isHit";
+	isHit.name = "isHit"; // a lot of unused code in here this is one of them. ended up witha  different approach.
 	isHit.type = "effect";
 	isHit.cancelable = false;
 	isHit.anim = "None";
@@ -131,10 +132,18 @@ actions::action actions::checkInputs(platform::Input& input, Player& player, int
         else { player.currentState.ismoving = false; }
     }
     for (const auto& action : allActions) {
-        if (input.isButtonPressed(action.keybind)) {
-            return action;
+        if (action.name == "block") {
+            if (input.isButtonPressed(action.keybind) && player.currentState.blockCooldown <= 0.0f) {
+                return action;
+            }
+        }
+        else {
+            if (input.isButtonPressed(action.keybind)) {
+                return action;
+            }
         }
     }
+
     return nullaction;
 }
 
@@ -144,6 +153,10 @@ void actions::updateState(Player& player, actions::action action, float deltatim
         return;
     }
     if (action.name == "none") {
+        if (!player.currentState.IsInAnimation) {
+			player.animation.sprite.hitbox = { 130.0f, 170.0f, 124.0f, 214.0f }; // Reset hitbox when not in action
+            player.currentState.currentAction = action;
+        }
         return;
     }
     if (action.name == "move_left") {
@@ -160,6 +173,11 @@ void actions::updateState(Player& player, actions::action action, float deltatim
     player.currentState.modifier = action.HasModifier;
     player.currentState.ismoving = false;
     player.setSprite(player, action.anim);
+    // Set the hitbox for the current action if defined
+    if (action.hitbox.z > 0 && action.hitbox.w > 0) {
+        player.animation.sprite.hitbox = action.hitbox;
+    }
+
     player.animation.CurrentFrame = 0;
 }
 
@@ -184,13 +202,55 @@ actions::action actions::checkHitboxes(Player& player1, Player& player2, effects
             float x1 = std::max(pos1.x, pos2.x);
             float y1 = std::max(pos1.y, pos2.y);
             float x2 = std::min(pos1.x + hb1.z, pos2.x + hb2.z);
-            float y2 = std::min(pos1.y + hb1.w, pos2.y + hb2.w);
+            float y2 = std::min(pos1.y + hb1.w, pos2.y + hb2.w); // math for where the intercept is between the hitboxes. turned out to be bad and used mostly different system.
 
             glm::vec2 effectPos = { (x1 + x2) / 2.0f, (y1 + y2) / 2.0f };
 
             if (player2.currentState.currentAction.name == actions::block.name) {
-                platform::log("Player 2 is blocking, no damage dealt");
-                return actions::Counter;
+                if (player2.currentState.currentAction.name == actions::block.name) {
+                    platform::log("Player 2 is blocking, counterattack triggered!");
+
+                    // Set up counterattack for player2 (the blocker)
+                    player2.currentState.currentAction = Counter;
+                    player2.currentState.IsInAnimation = true;
+                    player2.currentState.CancellableAnimation = Counter.cancelable;
+                    player2.currentState.modifier = Counter.HasModifier;
+                    player2.currentState.ismoving = false;
+                    player2.setSprite(player2, Counter.anim);
+                    player2.animation.CurrentFrame = 0;
+                    player2.currentState.IFrame = true;
+                    player2.currentState.Iframes = Counter.Frames; // or however long you want
+
+                    // Apply counter effects to player1 (the attacker)
+                    player1.attributes.health -= Counter.damage;
+                    player1.currentState.Iframes = 4;
+                    player1.currentState.IFrame = true;
+                    player1.currentState.stunnedforframes = Counter.ApliesModifierValue;
+                    player1.setSprite(player1, "Defensive_Stance");
+                    player1.animation.CurrentFrame = 0;
+
+                    // Play hit effect on attacker
+                    effectManager.drawEffect(
+                        hiteffect,
+                        { player1.attributes.position.x + player1.animation.sprite.drawOffset.x + 40.0f, player1.attributes.position.y + 144.0f - 44.0f },
+                        0
+                    );
+
+                    // Knockback attacker
+                    if (player2.attributes.position.x < player1.attributes.position.x) {
+                        player1.attributes.position.x += 75.0f;
+                    }
+                    else {
+                        player1.attributes.position.x -= 75.0f;
+                    }
+
+                    if (player1.attributes.health <= 0) {
+                        platform::log("Player 1 has been defeated!");
+                        player1.attributes.health = 0;
+                    }
+
+                    return nullaction; // Do not return Counter, as we've already set the state
+                }
             }
             else {
                 //platform::log("Player 2 is not blocking, dealing damage");
@@ -202,7 +262,32 @@ actions::action actions::checkHitboxes(Player& player1, Player& player2, effects
                 player2.currentState.IsInAnimation = false;
                 player2.currentState.ismoving = false;
                 player2.currentState.currentAction = nullaction;
-                effectManager.drawEffect(hiteffect, {effectPos.x, player1.attributes.position.y + 144.0f}, 0); // Draw hit effect at collision
+                effectManager.drawEffect(
+                    hiteffect,
+                    { player2.attributes.position.x + player2.animation.sprite.drawOffset.x + 40.0f, player2.attributes.position.y + 144.0f - 44.0f},
+                    0
+                );
+                // stun for all attacks
+				player2.currentState.stunnedforframes = player1.currentState.currentAction.ApliesModifierValue;
+                player2.setSprite(player2, "Defensive_Stance");
+				player2.animation.CurrentFrame = 0;
+                //check for which player is on the left or right of each other for knowckbakc
+                if (player1.attributes.position.x < player2.attributes.position.x) {
+				    player2.attributes.position.x += 75.0f; // Knockback to the right
+			    }
+		        else {
+			        player2.attributes.position.x -= 75.0f; // Knockback to the left
+		        }
+				
+
+
+				if (player2.attributes.health <= 0) {
+					platform::log("Player 2 has been defeated!");
+					player2.attributes.health = 0; // Ensure health doesn't go negative
+				}
+
+
+
 
                     
                 
@@ -282,10 +367,10 @@ void Player::move(Player& player, std::string direction, float deltatime, bool p
     }
 
     if (direction == "left") {
-        player.attributes.position.x -= 100 * deltatime;
+        player.attributes.position.x -= player.attributes.speed * deltatime;
     }
     else if (direction == "right") {
-        player.attributes.position.x += 100 * deltatime;
+        player.attributes.position.x += player.attributes.speed * deltatime;
     }
 }
 
@@ -302,6 +387,12 @@ void Player::regenManaAndStamina(Player& player, float deltatime) {
 
 // renderPlayer methods
 int renderPlayer::updatePlayer(Player& player, float deltaTime, gl2d::Renderer2D& renderer) {
+    if (player.currentState.blockCooldown > 0.0f) {
+        player.currentState.blockCooldown -= deltaTime;
+        if (player.currentState.blockCooldown < 0.0f) {
+            player.currentState.blockCooldown = 0.0f;
+        }
+    }
     if (player.currentState.IFrame) {
         player.currentState.IframeTimer += deltaTime;
         if (player.currentState.IframeTimer >= player.currentState.IframeLength) {
@@ -342,8 +433,13 @@ int renderPlayer::updatePlayer(Player& player, float deltaTime, gl2d::Renderer2D
                 player.setSprite(player, "Defensive_Stance");
                 player.currentState.IsInAnimation = false;
                 player.currentState.ismoving = false;
+                if (player.currentState.currentAction.name == "block") {
+                    player.currentState.blockCooldown = player.currentState.blockCooldownDuration;
+                }
+                player.currentState.currentAction.name = "none";
                 return 1;
             }
+
         }
     }
     else if (player.currentState.ismoving) {
@@ -373,23 +469,47 @@ int renderPlayer::updatePlayer(Player& player, float deltaTime, gl2d::Renderer2D
     return 0;
 }
 
+void beans() {
+    char arr[4] = "yay";
+    int number = 1;
+	int number2 = number + number; 
+    if (number2 > 10) { number2++; }
 
+
+}
 void renderPlayer::drawStatBars(Player player1, Player player2, gl2d::Renderer2D& renderer) {
     glm::vec2 player1barpos = { 50.0f, 75.0f };
     glm::vec2 player2barpos = {};
-
     int width = 200;
     int height = 50;
     player2barpos.x += 1920.0f - width - player1barpos.x;
+
     glm::vec4 P1basebar = { player1barpos.x, player1barpos.y, width, height };
     glm::vec4 P2basebar = { player2barpos.x, player1barpos.y , width, height };
     renderer.renderRectangle(P1basebar, Colors_Red);
     renderer.renderRectangle(P2basebar, Colors_Red);
-    glm::vec4 P1healthbar = { player1barpos.x, player1barpos.y, float((player1.attributes.health / float(player1.attributes.maxHealth)) * width), height };
-    glm::vec4 P2healthbar = { player2barpos.x, player1barpos.y, float((player2.attributes.health / float(player2.attributes.maxHealth)) * width), height };  
-    renderer.renderRectangle(P1healthbar, Colors_Green);  // extra float is to force c++ to use float division  ^^^^
+
+    float p1HealthRatio = float(player1.attributes.health) / float(player1.attributes.maxHealth);
+    float p2HealthRatio = float(player2.attributes.health) / float(player2.attributes.maxHealth);
+    glm::vec4 P1healthbar = { player1barpos.x, player1barpos.y, p1HealthRatio * width, height };
+    glm::vec4 P2healthbar = { player2barpos.x, player1barpos.y, p2HealthRatio * width, height };
+    renderer.renderRectangle(P1healthbar, Colors_Green);
     renderer.renderRectangle(P2healthbar, Colors_Green);
+
+    // Block cooldown overlay for player 1
+    if (player1.currentState.blockCooldown > 0.0f) {
+        float ratio = player1.currentState.blockCooldown / player1.currentState.blockCooldownDuration;
+        glm::vec4 cooldownBar = { player1barpos.x, player1barpos.y, width * ratio, height };
+        renderer.renderRectangle(cooldownBar, { 0.2f, 0.2f, 1.0f, 0.5f }); // semi-transparent blue
+    }
+    // Block cooldown overlay for player 2
+    if (player2.currentState.blockCooldown > 0.0f) {
+        float ratio = player2.currentState.blockCooldown / player2.currentState.blockCooldownDuration;
+        glm::vec4 cooldownBar = { player2barpos.x, player1barpos.y, width * ratio, height };
+        renderer.renderRectangle(cooldownBar, { 0.2f, 0.2f, 1.0f, 0.5f }); // semi-transparent blue
+    }
 }
+
 
 void renderPlayer::updateFrame(Player& player, gl2d::Renderer2D& renderer) {
     renderer.renderRectangle(

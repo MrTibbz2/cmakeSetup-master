@@ -43,7 +43,7 @@ public:
 		glm::vec2 framesize = { 0.0f, 0.0f }; // size of each frame in the atlas
 		glm::vec2 pos = { 0.0f, 0.0f }; // position to draw the effect
 		float frameTimer = 0.0f; // timer for frame animation
-		float frameDuration = 0.1f; // duration of each frame in seconds
+		float frameDuration = 0.05f; // duration of each frame in seconds
 	
 	};
     effects::Effect loadEffect(std::string path, glm::vec2 atlasSize);
@@ -118,6 +118,8 @@ public:
         int stunnedforframes = 0; // frames player is stunned
 		float stunnedTimer = 0.0f; // timer for stun
 		float stunnedLength = 0.1f; // length of stun frame 
+        float blockCooldown = 0.0f; // seconds remaining
+        float blockCooldownDuration = 1.0f;
     };
     struct attributes {
         std::string name;
@@ -128,6 +130,7 @@ public:
         int stamina = 100;
         int maxStamina = 100;
         int maxMana = 100;
+		int speed = 175; // movement speed
 		
     };
     struct animation {
