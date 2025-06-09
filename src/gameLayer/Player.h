@@ -12,6 +12,7 @@ class actions;
 class Player;
 class Animation;
 
+
 // Animation class
 class Animation {
 public:
@@ -27,11 +28,11 @@ public:
 
     Sprite InitSprite(std::string path);
 };
-class hitManagement {
-public:
-    //bool isHit(Player& player1, Player& player2);
-
-};
+//class hitManagement {
+//public:
+//    //bool isHit(Player& player1, Player& player2);
+//
+//};
 class effects {
 public:
     struct Effect {
@@ -95,7 +96,7 @@ public:
 };
 
 // Player class
-class Player {
+class Player {  
 public:
     std::unordered_map<std::string, Animation::Sprite> sprites_blue_right;
     std::unordered_map<std::string, Animation::Sprite> sprites_blue_left;

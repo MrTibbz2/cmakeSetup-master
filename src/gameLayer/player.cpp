@@ -144,6 +144,7 @@ actions::action actions::checkInputs(platform::Input& input, Player& player, int
         }
     }
 
+
     return nullaction;
 }
 
@@ -247,6 +248,8 @@ actions::action actions::checkHitboxes(Player& player1, Player& player2, effects
                     if (player1.attributes.health <= 0) {
                         platform::log("Player 1 has been defeated!");
                         player1.attributes.health = 0;
+						nullaction.name = "player1_win";
+                        return nullaction;// Set a game over state or similar
                     }
 
                     return nullaction; // Do not return Counter, as we've already set the state
@@ -283,7 +286,10 @@ actions::action actions::checkHitboxes(Player& player1, Player& player2, effects
 
 				if (player2.attributes.health <= 0) {
 					platform::log("Player 2 has been defeated!");
+                    
 					player2.attributes.health = 0; // Ensure health doesn't go negative
+                    nullaction.name = "player2_win";
+                    return nullaction;
 				}
 
 
@@ -615,6 +621,8 @@ void effects::updateEffects(float dt, gl2d::Renderer2D& renderer) {
 		}
 		
 		++it;
+
+
 	}
 }
 

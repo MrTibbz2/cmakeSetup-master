@@ -26,9 +26,24 @@ struct GameData
 }gameData;
 
 
+std::string winner;
+enum class GameState // Corrected enum class name to match usage
+{
+	playing,
+	menu,
+	paused,
+	gameOver
+};
+GameState gameState = GameState::menu;
+
+ // Updated variable type to match corrected enum class name
 gl2d::Renderer2D renderer;
 gl2d::Texture BGTexture;
 glm::vec2 bgTextureSize;
+gl2d::Texture startTexture;
+gl2d::Texture endTexture;
+glm::vec2 startTextureSize;
+glm::vec2 endTextureSize;
 actions Player1Actions;
 actions Player2Actions;
 Player player1;
@@ -68,7 +83,8 @@ bool initGame()
 {
 	loadsprites Spriteloader;
 	Animation animation1;
-
+	char variable[256];
+	 
 	//initializing stuff for the renderer
 	gl2d::init();
 	renderer.create();
@@ -82,10 +98,17 @@ bool initGame()
 	platform::log(RESOURCES_PATH);
 
 	auto bgpath = std::string(RESOURCES_PATH) + "assets/bg/bg2.png";
+	auto startpath = std::string(RESOURCES_PATH) + "assets/bg/123.png";
+	auto endpath = std::string(RESOURCES_PATH) + "assets/bg/456.png";
 	//loading the texture
 	
 	BGTexture.loadFromFile(bgpath.c_str());
 	bgTextureSize = BGTexture.GetSize();
+	startTexture.loadFromFile(startpath.c_str());
+	endTexture.loadFromFile(endpath.c_str());
+	startTextureSize = startTexture.GetSize();
+	endTextureSize = endTexture.GetSize();
+
 	
 	//loading the player sprites
 	Spriteloader.loadPlayerSprites(player1, animation1);
@@ -200,7 +223,7 @@ bool gameLogic(float deltaTime, platform::Input& input)
 
 #pragma region background stuff
 
-	renderer.renderRectangle({ 0, 0, bgTextureSize }, BGTexture);
+	
 
 #pragma endregion
 
@@ -221,26 +244,71 @@ bool gameLogic(float deltaTime, platform::Input& input)
 	{
 		EffectsManager.drawEffect(hiteffect, { 100.0f, 100.0f }, 0);
 	}*/
-	actions::action action = Player1Actions.checkInputs(input, player1, platform::Button::A, platform::Button::D);
-	actions::action action2 = Player2Actions.checkInputs(input, player2, platform::Button::Left, platform::Button::Right);
-	actions::action result1, result2 = Player1Actions.checkHitboxes(player1, player2, EffectsManager, hiteffect); Player2Actions.checkHitboxes(player2, player1, EffectsManager, hiteffect);
-	/*platform::log(("Player1 action: " + result1.name).c_str());
-	platform::log(("Player2 action: " + result2.name).c_str());*/
+	if (gameState == GameState::playing) {
+		renderer.renderRectangle({ 0, 0, bgTextureSize }, BGTexture);
+		actions::action action = Player1Actions.checkInputs(input, player1, platform::Button::A, platform::Button::D);
+		actions::action action2 = Player2Actions.checkInputs(input, player2, platform::Button::Left, platform::Button::Right);
+		actions::action result1 = Player1Actions.checkHitboxes(player1, player2, EffectsManager, hiteffect);
+		actions::action result2 = Player2Actions.checkHitboxes(player2, player1, EffectsManager, hiteffect);
+		/*platform::log(("Player1 action: " + result1.name).c_str());
+		platform::log(("Player2 action: " + result2.name).c_str());*/
+		if (result1.name == "player1_win" || result2.name == "player1_win")
+		{
+			gameState = GameState::gameOver;
+			winner = "Player 2";
+			
+		}
+		else if (result1.name == "player2_win" || result2.name == "player2_win")
+		{
+			gameState = GameState::gameOver;
+			winner = "Player 1";
+		}
 
-	
-	Player1Actions.updateState(player1, action, deltaTime);
 
-	
-	
-	Player2Actions.updateState(player2, action2, deltaTime); 
-	
-	
-	PlayerRenderer.updatePlayer(player1, deltaTime, renderer);
-	PlayerRenderer.updatePlayer(player2, deltaTime, renderer);
-	PlayerRenderer.showHitbox(player2, renderer);
-	PlayerRenderer.showHitbox(player1, renderer);
-	PlayerRenderer.drawStatBars(player1, player2, renderer);
-	EffectsManager.updateEffects(deltaTime, renderer);
+		Player1Actions.updateState(player1, action, deltaTime);
+
+
+
+		Player2Actions.updateState(player2, action2, deltaTime);
+
+
+		PlayerRenderer.updatePlayer(player1, deltaTime, renderer);
+		PlayerRenderer.updatePlayer(player2, deltaTime, renderer);
+		PlayerRenderer.showHitbox(player2, renderer);
+		PlayerRenderer.showHitbox(player1, renderer);
+		PlayerRenderer.drawStatBars(player1, player2, renderer);
+		EffectsManager.updateEffects(deltaTime, renderer);
+	}
+	else if (gameState == GameState::menu)
+	{
+		renderer.renderRectangle({ 0, 0, startTextureSize }, startTexture);
+		if (platform::isButtonPressed(platform::Button::Space))
+		gameState = GameState::playing; // Start the game when space is pressed
+		
+	}
+	else if (gameState == GameState::gameOver)
+		
+	{
+		renderer.renderRectangle({ 0, 0, endTextureSize }, endTexture);
+		std::string winnerText;
+		renderer.renderRectangle({ 0, 0, endTextureSize }, endTexture);
+		gl2d::Font f(RESOURCES_PATH "roboto_black.ttf");
+		
+		winnerText = winner + " Wins!";
+		
+		
+		
+		// Combine with "Game Over"
+		std::string gameOverText = "Game Over\n" + winnerText;
+
+		// Center position calculation (assuming w and h are your window width/height)
+		glm::vec2 textSize = renderer.getTextSize(gameOverText.c_str(), f, 72.0f);
+		glm::vec2 centerPos = { (w - textSize.x) / 2.0f, (h - textSize.y) / 2.0f };
+		
+		// Render the text
+		renderer.renderText(centerPos, gameOverText.c_str(), f, {1,1,1,1}, 72.0f);
+	}
+
 	renderer.flush();
 
 
