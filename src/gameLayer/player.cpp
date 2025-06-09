@@ -64,6 +64,8 @@ actions::actions() {
     kick.keybind = platform::Button::LeftCtrl;
     kick.staminaCost = 25;
     kick.Frames = 5;
+    kick.hitframe = 3;
+    kick.hitbox = { 110.0f, 170.0f, 164.0f, 214.0f };
 
     Iceattack.name = "Iceattack";
     Iceattack.type = "magic_attack";
